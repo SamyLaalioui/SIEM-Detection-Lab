@@ -32,6 +32,8 @@ August 10, 2016
 ├── Attacker gains access to Joomla admin panel
 │   └── Multiple POST requests to /joomla/administrator/index.php
 │
+├── Attacker uploads malicious files — 3791.exe and agent.php
+│
 └── Attacker uploads defacement image — poisonivy-is-coming-for-you-batman.jpeg
 └── Site homepage replaced — defacement complete
 
@@ -67,6 +69,8 @@ index=botsv1 src_ip=40.80.148.42 sourcetype=stream:http
 
 **Finding:** Multiple user agent strings contained `acunetix_wvs_security_test` — Acunetix's own security test signature left behind in HTTP requests.
 
+![Finding 2 - Acunetix user agent strings](finding2-acunetix.png)
+
 **Answer:** Acunetix
 
 ---
@@ -81,21 +85,43 @@ index=botsv1 imreallynotbatman.com sourcetype=stream:http
 
 **Methodology:** CMS platforms have distinctive URL structures. By listing all URI paths requested on the site, the CMS reveals itself through its folder structure.
 
-**Finding:** The majority of URI paths contained `/joomla/` — including `/joomla/index.php`, `/joomla/administrator/index.php`, and `/joomla/media/`. The site is running Joomla. Path traversal attempts against `/windows/win.ini` were also visible — the scanner probing for file inclusion vulnerabilities.
+**Finding:** The majority of URI paths contained `/joomla/` — including `/joomla/index.php`, `/joomla/administrator/index.php`, and `/joomla/media/`. Path traversal attempts against `/windows/win.ini` were also visible — the scanner probing for file inclusion vulnerabilities.
+
+![Finding 3 - Joomla URI paths](finding3-joomla.png)
 
 **Answer:** Joomla
 
 ---
 
-### Finding 4 — Defacement File
+### Finding 4 — Malicious Files Uploaded
+**Question:** What files did the attacker upload to the server?
+
+**SPL Query:**
+index=botsv1 imreallynotbatman.com sourcetype=stream:http
+| stats count by part_filename{}
+| sort -count
+
+**Methodology:** POST requests carry file uploads. The `part_filename{}` field captures the name of any file uploaded via HTTP. Filtering to the target site reveals all files the attacker pushed to the server.
+
+**Finding:** Two malicious files were uploaded — `3791.exe` (likely malware) and `agent.php` (likely a web shell for persistent access).
+
+![Finding 4 - Uploaded files](finding4-uploads.png)
+
+**Answer:** 3791.exe, agent.php
+
+---
+
+### Finding 5 — Defacement File
 **Question:** What file was used to deface the website?
 
 **SPL Query:**
 index=botsv1 "poisonivy-is-coming-for-you-batman.jpeg"
 
-**Methodology:** Using threat intelligence — the attacker group name (Po1s0n1vy) and the target's Batman theme — to construct a targeted search. This is a common analyst technique: using known attacker TTPs and context to search more efficiently.
+**Methodology:** Using threat intelligence — the attacker group name (Po1s0n1vy) and the target's Batman theme — to construct a targeted search. This is a common analyst technique: using known attacker TTPs and context to search more efficiently rather than brute-forcing through all logs.
 
 **Finding:** The filename `poisonivy-is-coming-for-you-batman.jpeg` was confirmed across multiple log sources — suricata, stream:http, and fgt_utm — confirming it was uploaded to and served from the web server.
+
+![Finding 5 - Defacement file](finding5-defacement.png)
 
 **Answer:** poisonivy-is-coming-for-you-batman.jpeg
 
@@ -105,11 +131,13 @@ index=botsv1 "poisonivy-is-coming-for-you-batman.jpeg"
 
 | Type | Value | Description |
 |---|---|---|
-| IP Address | 40.80.148.42 | Attacker scanning IP |
+| IP Address | 40.80.148.42 | Attacker scanning and exploitation IP |
 | File | poisonivy-is-coming-for-you-batman.jpeg | Defacement image |
+| File | 3791.exe | Malware uploaded to server |
+| File | agent.php | Likely web shell for persistent access |
 | Tool | Acunetix WVS | Vulnerability scanner used in recon |
 | CMS | Joomla | Exploited CMS |
-| URL | /joomla/administrator/index.php | Admin panel targeted |
+| URL | /joomla/administrator/index.php | Admin panel targeted for access |
 
 ---
 
